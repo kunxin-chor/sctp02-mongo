@@ -8,6 +8,9 @@ require('dotenv').config();
 // to a Mongo database
 const MongoClient = mongodb.MongoClient;
 
+// create a shortcut to mongodb.ObjectId
+const ObjectId = mongodb.ObjectId;
+
 // create the express application
 const app = express();
 
@@ -40,8 +43,25 @@ async function main() {
     // create the routes after connecting to the database
     app.get("/food-sightings", async function (req, res) {
         try {
+            // empty criteria object
+            // Note: if we do a .find({}) it will return all the documents in the collection
+            const criteria = {};
+
+            if (req.query.description) {
+                criteria.description = {
+                    '$regex': req.query.description,
+                    '$options': 'i'
+                }
+            }
+
+            if (req.query.food) {
+                criteria.food = {
+                    '$in':[req.query.food]
+                }
+            }
+
             // get all the sightings
-            const results = await db.collection("sightings").find({}).toArray();
+            const results = await db.collection("sightings").find(criteria).toArray();
 
             res.json({
                 'sightings': results
@@ -86,6 +106,36 @@ async function main() {
             })
         }
 
+    })
+
+    app.put('/food-sighting/:id', async function(req,res){
+        const description = req.body.description;
+        const food = req.body.food;
+        const datetime = new Date(req.body.datetime) || new Date();
+
+        const result = await db.collection("sightings").updateOne({
+            '_id': new ObjectId(req.params.id)
+        },{
+            '$set': {
+                'description': description,
+                'food': food,
+                'datetime': datetime
+            }
+        })
+
+        res.json({
+            'result': result
+        })
+    })
+
+    app.delete('/food-sighting/:id', async function(req,res){
+        await db.collection('sightings').deleteOne({
+            '_id': new ObjectId(req.params.id)
+        });
+
+        res.json({
+            'message':"Deleted"
+        })
     })
 }
 
