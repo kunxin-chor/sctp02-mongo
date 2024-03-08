@@ -31,7 +31,9 @@ async function connect(uri, dbname) {
 }
 
 async function main() {
+    // connection string goes here
     const uri =  "mongodb+srv://root:rotiprata123@cluster0.cacnq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    // get the database using the `connect` function
     const db = await connect(uri, "sample_mflix");
 
     // create the routes after connecting to the database
