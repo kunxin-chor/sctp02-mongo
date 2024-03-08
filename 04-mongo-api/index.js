@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongodb = require('mongodb');
+require('dotenv').config();
 
 // A Mongo client allows Express (or any
 // NodeJS application) to send request
@@ -23,7 +24,7 @@ async function connect(uri, dbname) {
     // `connect` allows us to connect to the mongodb
     // useUnifiedTopology means we want use the latest
     // structure for Mongo
-    const client = await MongoClient.connect(uri,{
+    const client = await MongoClient.connect(uri, {
         useUnifiedTopology: true
     });
     let db = client.db(dbname);
@@ -31,25 +32,65 @@ async function connect(uri, dbname) {
 }
 
 async function main() {
-    // connection string goes here
-    const uri =  "mongodb+srv://root:rotiprata123@cluster0.cacnq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    // connection string is now from the .env file
+    const uri = process.env.MONGO_URI;
     // get the database using the `connect` function
-    const db = await connect(uri, "sample_mflix");
+    const db = await connect(uri, "sctp02_food_sightings");
 
     // create the routes after connecting to the database
-    app.get("/", async function(req,res){
+    app.get("/food-sightings", async function (req, res) {
+        try {
+            // get all the sightings
+            const results = await db.collection("sightings").find({}).toArray();
 
-        // get the first ten moves
-        const results = await db.collection("movies").find({}).limit(10).toArray();
+            res.json({
+                'sightings': results
+            })
+        } catch (e) {
+            res.status(500);
+            res.json({
+                'error': e
+            })
+        }
 
-        res.json({
-            'movies': results
-        })
+    });
+
+    // Sample Food Sighting document"
+    // {
+    //   _id: ObjectId(),
+    //  description:"Chinese Buffet at LT2",
+    //  food:["fried rice", "chicken wings"],
+    //  datetime:2024-08-03
+    // }
+    app.post("/food-sighting", async function (req, res) {
+        // try...catch is for exception handling
+        // an execption is an unexpected error usually from a third party
+        // (in this case, the third party is Mongo Atlas)
+        try {
+            const description = req.body.description;
+            const food = req.body.food;
+            const datetime = new Date(req.body.datetime) || new Date();
+            const result = await db.collection("sightings").insertOne({
+                'description': description,
+                'food': food,
+                'datetime': datetime
+            });
+            res.json({
+                'result': result
+            })
+        } catch (e) {
+            // e will contain the error message
+            res.status(500); // internal server error
+            res.json({
+                'error': e
+            })
+        }
+
     })
 }
 
 main();
 
-app.listen(3000, function(){
+app.listen(3000, function () {
     console.log("Server has started");
 });
