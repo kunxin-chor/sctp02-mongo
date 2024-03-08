@@ -107,3 +107,59 @@ db.animals.deleteOne({
     "_id": ObjectId('65ea8169a0700b9fc5d061cb')
 })
 ```
+
+# CRUD with arrays
+
+We want to add in a `checkups` to each animal. If an animal has two checkups, there should be two items in the array.
+
+## Add to array
+
+* Note: the array does not have to exist
+* For embedded documents, we have to manually provide an ID
+```
+db.animals.updateOne({
+    '_id': ObjectId('65ea80c7a0700b9fc5d061c9')
+}, {
+    '$push': {
+        'checkups': {
+            "_id": ObjectId(),
+            "name": "Dr. Chua",
+            "diagnosis": "flu",
+            "treatment": "pills"
+        }
+    }
+})
+```
+
+## Remove from array
+
+* We use `$pull`
+
+```
+db.animals.updateOne({
+    "_id":ObjectId("65ea80c7a0700b9fc5d061c9")
+}, {
+    "$pull": {
+        "checkups": {
+            "_id": ObjectId("65ea8a04a0700b9fc5d061d0")
+        }
+    }
+})
+```
+
+## Modify an item in an array
+
+```
+db.animals.updateOne({
+    '_id': ObjectId('65ea80c7a0700b9fc5d061c9'),
+    'checkups': {
+        '$elemMatch': {
+            '_id': ObjectId('65ea8b10a0700b9fc5d061d1')
+        }
+    }
+}, {
+    "$set": {
+        "checkups.$.name":"Dr. Su"
+    }
+})
+```
