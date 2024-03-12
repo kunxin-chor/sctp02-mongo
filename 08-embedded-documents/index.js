@@ -7,8 +7,8 @@ require('dotenv').config();
 
 // if we are trying to require from our
 // own files, we need the './'
-const { connect} = require('./MongoUtil');
-const { authenticateWithJWT} = require('./middleware');
+const { connect } = require('./MongoUtil');
+const { authenticateWithJWT } = require('./middleware');
 
 // create the express application
 const app = express();
@@ -30,7 +30,7 @@ function generateAccessToken(id, email) {
         'user_id': id,
         'email': email
     }, process.env.TOKEN_SECRET, {
-        'expiresIn':'3d'  // w = weeks, d = days, h = hours, m = minutes, s = seconds
+        'expiresIn': '3d'  // w = weeks, d = days, h = hours, m = minutes, s = seconds
     });
 }
 
@@ -56,7 +56,7 @@ async function main() {
 
             if (req.query.food) {
                 criteria.food = {
-                    '$in':[req.query.food]
+                    '$in': [req.query.food]
                 }
             }
 
@@ -89,12 +89,12 @@ async function main() {
         try {
             const description = req.body.description;
             const food = req.body.food;
-            const datetime = req.body.datetime ? new Date(req.body.datetime): new Date();
-            
+            const datetime = req.body.datetime ? new Date(req.body.datetime) : new Date();
+
             if (!description) {
                 res.status(400);
                 res.json({
-                    'error':'A description must be provided'
+                    'error': 'A description must be provided'
                 });
                 return;
             }
@@ -102,10 +102,10 @@ async function main() {
             if (!food || !Array.isArray(food)) {
                 res.status(400);
                 res.json({
-                    'error':'Food must be provided and must be an array'
+                    'error': 'Food must be provided and must be an array'
                 })
             }
-            
+
             // insert a new document based on what the client has sent
             const result = await db.collection("sightings").insertOne({
                 'description': description,
@@ -125,12 +125,12 @@ async function main() {
 
     })
 
-    app.put('/food-sighting/:id', async function(req,res){
+    app.put('/food-sighting/:id', async function (req, res) {
         try {
             const description = req.body.description;
             const food = req.body.food;
-            const datetime = req.body.datetime ?  new Date(req.body.datetime) : new Date();
-    
+            const datetime = req.body.datetime ? new Date(req.body.datetime) : new Date();
+
             if (!description || !food || !Array.isArray(food)) {
                 res.status(400); // bad request -- the client didn't follow the specifications for our endpoint
                 res.json({
@@ -138,43 +138,43 @@ async function main() {
                 });
                 return;
             }
-    
+
             const result = await db.collection("sightings").updateOne({
                 '_id': new ObjectId(req.params.id)
-            },{
+            }, {
                 '$set': {
                     'description': description,
                     'food': food,
                     'datetime': datetime
                 }
             })
-    
+
             res.json({
                 'result': result
             })
         } catch (e) {
             res.status(500);
             res.json({
-                'error':'Internal Server Error'
+                'error': 'Internal Server Error'
             })
         }
-       
+
     })
 
-    app.delete('/food-sighting/:id', async function(req,res){
+    app.delete('/food-sighting/:id', async function (req, res) {
         await db.collection('sightings').deleteOne({
             '_id': new ObjectId(req.params.id)
         });
 
         res.json({
-            'message':"Deleted"
+            'message': "Deleted"
         })
     })
 
     // Users sign up and log in
     // It is very common in RESTFul API to represent a process as a document 
     // that is created because of said process
-    app.post('/user', async function(req,res){
+    app.post('/user', async function (req, res) {
 
         // hashing with bcrypt is an async function
         // bcyrpt.hash takes two argument:
@@ -191,14 +191,14 @@ async function main() {
     })
 
     // Allow user to log in by providing their email and password
-    app.post('/login', async function(req,res){
+    app.post('/login', async function (req, res) {
         // 1. Find the user by email address
         const user = await db.collection('users')
-                        .findOne({
-                            email: req.body.email
-                        });
+            .findOne({
+                email: req.body.email
+            });
 
-        
+
         // 2. Check if the password matches
         if (user) {
             // bcrypt.compare()
@@ -213,13 +213,13 @@ async function main() {
             } else {
                 res.status(400);
                 res.json({
-                    'error':'Invalid login credentials'
+                    'error': 'Invalid login credentials'
                 })
             }
         } else {
             res.status(400);
             return res.json({
-                'error':'Invalid login credentials'
+                'error': 'Invalid login credentials'
             })
         }
 
@@ -227,21 +227,87 @@ async function main() {
     });
 
     // Protected route: client must provide the JWT to access
-    app.get('/profile', authenticateWithJWT, async function(req,res){
-       
+    app.get('/profile', authenticateWithJWT, async function (req, res) {
+
         res.json({
-            'message':'success in accessing protected route',
+            'message': 'success in accessing protected route',
             'payload': req.payload
         })
     })
 
-    app.get('/payment', authenticateWithJWT, async function(req,res){
+    app.get('/payment', authenticateWithJWT, async function (req, res) {
         res.json({
-            'message':"accessing protected payment route"
+            'message': "accessing protected payment route"
         })
     })
+
+    // CRUD ROUTES FOR THE NOTES EMBEDDED DOCUMENTS
+    // Add a new note to the food sighting with the id specified in the URL
+    app.post('/food-sighting/:foodsightingid', async function (req, res) {
+        const foodSightingId = req.params.foodsightingid;
+        const newNote = {
+            _id: new ObjectId(), // for embeddded doc have to provide an ObjectId manually
+            email: req.body.email,
+            content: req.body.content
+        };
+
+        // The food sighting already exists. we modify it to add the new
+        // note to its `notes` array, therefore it should be updateOne.
+        const results = await db.collection('sightings').updateOne({
+            '_id': new ObjectId(foodSightingId)
+        }, {
+            '$push': {
+                'notes': newNote
+            }
+        });
+        res.json({
+            'results': results
+        })
+    })
+
+    // Delete a note from an existing food sighting document
+    app.delete('/food-sighting/:foodsightingid/note/:noteid', async function (req, res) {
+        const foodSightingId = req.params.foodsightingid;
+        const noteId = req.params.noteid;
+
+        const results = await db.collection('sightings').updateOne({
+            _id: new ObjectId(foodSightingId)
+        }, {
+            '$pull': {
+                'notes': {
+                    '_id': new ObjectId(noteId)
+                }
+            }
+        });
+
+        res.json({
+            results
+        })
+
+    });
+
+    // update a note in a food sighting
+    app.put('/food-sighting/:foodsightingid/note/:noteid', async function (req, res) {
+        const foodSightingId = req.params.foodsightingid;
+        const noteId = req.params.noteid;
+
+        const results = await db.collection('sightings')
+            .updateOne({
+                '_id': new ObjectId(foodSightingId),
+                'notes._id': new ObjectId(noteId)
+            }, {
+                '$set': {
+                    'notes.$.content': req.body.content,
+                    'notes.$.email': req.body.email
+                }
+            })
         
-    
+        res.json({
+            results
+        })
+
+    })
+
 }
 
 main();
